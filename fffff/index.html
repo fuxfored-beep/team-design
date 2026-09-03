@@ -110,8 +110,8 @@
 
   <script>
     const GITEE_CONFIG = {
-      owner: "design_19_0",
-      repo: "img",
+      owner: "design",
+      repo: "design19",
       token: "611758e7e5e5ae86fca6d3fecab435c7",
       dataFile: "data.json"
     };
@@ -153,8 +153,50 @@
     let storedImages = [];
     let dataSha = null;
 
+    // 读取本地存储中记录的当前最新写入仓库
+    let activeUploadRepo = localStorage.getItem("gitee_active_repo") || GITEE_CONFIG.repo;
+
     function isVideoFile(filename = "") {
       return /\.(mp4|mov|webm|ogg)$/i.test(filename);
+    }
+
+    // 核心：查询当前使用仓库的已用大小，若超过 420MB 自动新建子仓库
+    async function checkAndAutoMigrateRepo() {
+      try {
+        const repoUrl = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${activeUploadRepo}?access_token=${GITEE_CONFIG.token}`;
+        const res = await fetch(repoUrl);
+        if (!res.ok) return activeUploadRepo;
+        
+        const repoInfo = await res.json();
+        // size 单位是 KB，420MB = 430080 KB (Gitee 500MB 上限安全预警阈值)
+        if (repoInfo.size && repoInfo.size > 430080) {
+          const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+          const newRepoName = `${GITEE_CONFIG.repo}_${dateStr}_${Math.random().toString(36).slice(-3)}`;
+          
+          const createUrl = `https://gitee.com/api/v5/orgs/${GITEE_CONFIG.owner}/repos`;
+          const createRes = await fetch(createUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json;charset=utf-8" },
+            body: JSON.stringify({
+              access_token: GITEE_CONFIG.token,
+              name: newRepoName,
+              has_issues: false,
+              has_wiki: false,
+              auto_init: true // 自动生成 master 分支
+            })
+          });
+
+          if (createRes.ok) {
+            activeUploadRepo = newRepoName;
+            localStorage.setItem("gitee_active_repo", activeUploadRepo);
+            // 稍作等待以便 Gitee 云端初始化分支
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+      } catch (e) {
+        console.warn("容量检查或新建仓库失败，继续降级使用当前仓库:", e);
+      }
+      return activeUploadRepo;
     }
 
     async function loadDataFromGitee() {
@@ -237,10 +279,10 @@
       });
     }
 
-    async function uploadSingleFileToGitee(base64Content, extension) {
+    async function uploadSingleFileToGitee(base64Content, extension, targetRepo) {
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(-5)}.${extension}`;
       const path = `uploads/${fileName}`;
-      const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${path}`;
+      const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${targetRepo}/contents/${path}`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json;charset=utf-8" },
@@ -259,6 +301,7 @@
         url: resData.content.download_url,
         path: path,
         sha: resData.content.sha,
+        repo: targetRepo,
         name: fileName
       };
     }
@@ -350,17 +393,19 @@
             const box = document.createElement("div");
             box.className = "image-box";
 
+            const fileRepo = itemRecord.repo || GITEE_CONFIG.repo;
+
             if (isVid) {
               box.innerHTML = `
                 <video src="${itemRecord.url}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>
                 <span class="video-tag">VIDEO</span>
-                <button class="delete-btn" title="删除" onclick="event.stopPropagation(); deleteImage('${itemRecord.id}', '${itemRecord.path}', '${itemRecord.sha}')">×</button>
+                <button class="delete-btn" title="删除" onclick="event.stopPropagation(); deleteImage('${itemRecord.id}', '${itemRecord.path}', '${itemRecord.sha}', '${fileRepo}')">×</button>
               `;
               box.onclick = () => openModal(itemRecord.url, true);
             } else {
               box.innerHTML = `
                 <img src="${itemRecord.url}" alt="设计图" loading="lazy">
-                <button class="delete-btn" title="删除" onclick="event.stopPropagation(); deleteImage('${itemRecord.id}', '${itemRecord.path}', '${itemRecord.sha}')">×</button>
+                <button class="delete-btn" title="删除" onclick="event.stopPropagation(); deleteImage('${itemRecord.id}', '${itemRecord.path}', '${itemRecord.sha}', '${fileRepo}')">×</button>
               `;
               box.onclick = () => openModal(itemRecord.url, false);
             }
@@ -390,6 +435,9 @@
 
             uploadBtn.disabled = true;
             try {
+              uploadBtn.innerText = "校验仓库容量...";
+              const targetRepo = await checkAndAutoMigrateRepo();
+
               const newUploadedItems = [];
               for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -412,7 +460,7 @@
                   ext = "jpg";
                 }
 
-                const fileInfo = await uploadSingleFileToGitee(rawBase64, ext);
+                const fileInfo = await uploadSingleFileToGitee(rawBase64, ext, targetRepo);
 
                 newUploadedItems.push({
                   id: `${Date.now()}_${Math.random().toString(36).slice(-5)}`,
@@ -422,7 +470,8 @@
                   name: fileInfo.name,
                   url: fileInfo.url,
                   path: fileInfo.path,
-                  sha: fileInfo.sha
+                  sha: fileInfo.sha,
+                  repo: fileInfo.repo
                 });
               }
 
@@ -450,13 +499,14 @@
       });
     }
 
-    async function deleteImage(id, path, sha) {
+    async function deleteImage(id, path, sha, fileRepo) {
       if (!confirm("确认从云端删除此项产出？")) return;
       try {
         const filtered = storedImages.filter(img => img.id !== id);
         await syncDataToGitee(filtered);
         if (path && sha) {
-          const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${path}`;
+          const repoToDeleteFrom = fileRepo || GITEE_CONFIG.repo;
+          const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${repoToDeleteFrom}/contents/${path}`;
           fetch(url, {
             method: "DELETE",
             headers: { "Content-Type": "application/json;charset=utf-8" },
