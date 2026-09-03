@@ -1,1 +1,497 @@
-<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <meta name="referrer" content="no-referrer">  <title>团队产出 / DESIGN ARCHIVE</title>  <style>    :root {      --bg: #0a0a0a;      --surface: #141414;      --border: #262626;      --text: #f0f0f0;      --text-muted: #888888;      --accent: #ffffff;      --danger: #ff5252;    }    * { box-sizing: border-box; margin: 0; padding: 0; }    body {      background-color: var(--bg);      color: var(--text);      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;      padding: 40px 24px 80px;    }    .container { max-width: 1080px; margin: 0 auto; }    header { margin-bottom: 56px; border-bottom: 1px solid var(--border); padding-bottom: 32px; }    h1 { font-size: 2.2rem; font-weight: 500; letter-spacing: 0.05em; margin-bottom: 6px; }    .subtitle { font-size: 0.85rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }    .month-nav { display: flex; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }    .month-btn {      background: transparent; border: 1px solid var(--border); color: var(--text-muted);      padding: 8px 18px; font-size: 0.9rem; cursor: pointer; border-radius: 2px;      transition: all 0.2s ease;    }    .month-btn:hover { border-color: var(--text-muted); color: var(--text); }    .month-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }    .round-block { margin-bottom: 64px; }    .round-title {      font-size: 1.25rem; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;      margin-bottom: 24px; display: flex; align-items: center; gap: 12px;    }    .round-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }    .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }    .member-card {      background-color: var(--surface); border: 1px solid var(--border);      padding: 20px; border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between;    }    .member-name {      font-size: 1rem; font-weight: 500; margin-bottom: 14px; color: var(--accent);      border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;    }    .output-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }    .output-item a { color: var(--text); text-decoration: none; font-size: 0.88rem; display: block; }    .output-item a:hover { color: var(--text-muted); text-decoration: underline; }    .output-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }    .empty-hint { font-size: 0.82rem; color: #555; font-style: italic; }    .image-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; min-height: 20px; }    .image-box {      position: relative; aspect-ratio: 1; border-radius: 2px; overflow: hidden;      border: 1px solid var(--border); background: #000; cursor: pointer;    }    .image-box img { width: 100%; height: 100%; object-fit: cover; }    .delete-btn {      position: absolute; top: 4px; right: 4px; width: 20px; height: 20px;      background: rgba(0, 0, 0, 0.75); border: 1px solid #444; color: #fff;      font-size: 12px; line-height: 1; border-radius: 50%; display: flex;      align-items: center; justify-content: center; cursor: pointer; opacity: 0;      transition: opacity 0.2s;    }    .image-box:hover .delete-btn { opacity: 1; }    .delete-btn:hover { background: var(--danger); border-color: var(--danger); }    .upload-btn-wrap { margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px; }    .upload-btn {      display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem;      color: var(--text-muted); border: 1px solid var(--border); padding: 6px 12px;      border-radius: 2px; cursor: pointer; background: transparent; transition: all 0.2s;    }    .upload-btn:hover { color: var(--text); border-color: var(--text-muted); background: rgba(255, 255, 255, 0.03); }    .upload-btn:disabled { opacity: 0.4; cursor: not-allowed; }    .file-input { display: none; }    .modal {      display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.9);      z-index: 999; justify-content: center; align-items: center; padding: 20px; cursor: zoom-out;    }    .modal.show { display: flex; }    .modal img { max-width: 90vw; max-height: 90vh; border: 1px solid var(--border); object-fit: contain; }  </style></head><body>  <div class="container">    <header>      <h1>团队产出</h1>      <div class="subtitle">Design Outputs</div>    </header>    <nav class="month-nav" id="monthNav"></nav>    <main id="contentArea"></main>  </div>  <div class="modal" id="modal" onclick="closeModal()">    <img id="modalImg" src="" alt="预览图">  </div>  <script>    const GITEE_CONFIG = {      owner: "design_19_0",      repo: "img",      token: "611758e7e5e5ae86fca6d3fecab435c7",      dataFile: "data.json"    };    const defaultMembers = ["三七", "阿闯", "婉清", "天鸽", "袁博", "了了", "唐四", "小fu"];    const createRound = (roundName, defaultTitle = "设计提案汇总", defaultDesc = "归档整理中") => ({      round: roundName,      members: defaultMembers.map(name => ({        name: name,        outputs: [{ title: defaultTitle, link: "#", desc: defaultDesc }]      }))    });    const archiveData = {      "2026年7月": [        createRound("Round 1", "设计提案汇总", "归档整理中"),        createRound("Round 2", "设计提案汇总", "归档整理中"),        createRound("Round 3", "设计提案汇总", "归档整理中")      ],      "2026年8月": [        createRound("Round 1", "设计提案汇总", "网球创意"),        createRound("Round 2", "设计提案汇总", "网球创意"),        createRound("Round 3", "设计提案汇总", "网球创意")      ],      "2026年9月": [        createRound("Round 1", "设计提案暂存", "方案待更新"),        createRound("Round 2", "设计提案暂存", "方案待更新"),        createRound("Round 3", "设计提案暂存", "方案待更新")      ],      "2026年10月": [        createRound("Round 1", "设计提案暂存", "方案待更新"),        createRound("Round 2", "设计提案暂存", "方案待更新"),        createRound("Round 3", "设计提案暂存", "方案待更新")      ]    };    let currentMonth = "2026年8月";    let storedImages = [];    let dataSha = null;    async function loadDataFromGitee() {      try {        const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${GITEE_CONFIG.dataFile}?access_token=${GITEE_CONFIG.token}&_t=${Date.now()}`;        const res = await fetch(url);        if (res.ok) {          const fileInfo = await res.json();          dataSha = fileInfo.sha;          const decoded = decodeURIComponent(escape(atob(fileInfo.content)));          storedImages = JSON.parse(decoded) || [];          localStorage.setItem("gitee_local_cache", JSON.stringify(storedImages));        } else if (res.status === 404) {          storedImages = [];        }      } catch (e) {        const cached = localStorage.getItem("gitee_local_cache");        if (cached) storedImages = JSON.parse(cached);      }    }    async function syncDataToGitee(newList) {      storedImages = newList;      localStorage.setItem("gitee_local_cache", JSON.stringify(storedImages));      const contentStr = unescape(encodeURIComponent(JSON.stringify(storedImages)));      const base64Content = btoa(contentStr);      const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${GITEE_CONFIG.dataFile}`;      const payload = {        access_token: GITEE_CONFIG.token,        content: base64Content,        message: "update data.json"      };      if (dataSha) payload.sha = dataSha;      const method = dataSha ? "PUT" : "POST";      const res = await fetch(url, {        method: method,        headers: { "Content-Type": "application/json;charset=utf-8" },        body: JSON.stringify(payload)      });      if (res.ok) {        const resData = await res.json();        dataSha = resData.content?.sha || null;      }    }    function compressImageToBase64(file) {      return new Promise((resolve, reject) => {        const reader = new FileReader();        reader.readAsDataURL(file);        reader.onload = (e) => {          const img = new Image();          img.src = e.target.result;          img.onload = () => {            const canvas = document.createElement('canvas');            const MAX = 1400;            let w = img.width, h = img.height;            if (w > MAX || h > MAX) {              if (w > h) { h = Math.round((h * MAX) / w); w = MAX; }              else { w = Math.round((w * MAX) / h); h = MAX; }            }            canvas.width = w;            canvas.height = h;            const ctx = canvas.getContext('2d');            ctx.drawImage(img, 0, 0, w, h);            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);            resolve(dataUrl.split(',')[1]);          };          img.onerror = reject;        };        reader.onerror = reject;      });    }    async function uploadSingleImageToGitee(base64Content) {      const fileName = `${Date.now()}_${Math.random().toString(36).slice(-5)}.jpg`;      const path = `uploads/${fileName}`;      const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${path}`;      const res = await fetch(url, {        method: "POST",        headers: { "Content-Type": "application/json;charset=utf-8" },        body: JSON.stringify({          access_token: GITEE_CONFIG.token,          content: base64Content,          message: `upload ${fileName}`        })      });      if (!res.ok) {        const err = await res.json();        throw new Error(err.message || "Gitee 上传失败");      }      const resData = await res.json();      return {        url: resData.content.download_url,        path: path,        sha: resData.content.sha      };    }    const monthNav = document.getElementById("monthNav");    const contentArea = document.getElementById("contentArea");    async function init() {      const cached = localStorage.getItem("gitee_local_cache");      if (cached) {        try { storedImages = JSON.parse(cached); } catch(e) {}      }      const months = Object.keys(archiveData);      monthNav.innerHTML = "";      months.forEach((month) => {        const btn = document.createElement("button");        btn.className = `month-btn ${month === currentMonth ? "active" : ""}`;        btn.textContent = month;        btn.onclick = () => selectMonth(month, btn);        monthNav.appendChild(btn);      });      renderContent(currentMonth);      await loadDataFromGitee();      renderContent(currentMonth);    }    function selectMonth(month, clickedBtn) {      currentMonth = month;      document.querySelectorAll(".month-btn").forEach(btn => btn.classList.remove("active"));      clickedBtn.classList.add("active");      renderContent(month);    }    function renderContent(month) {      const rounds = archiveData[month] || [];      contentArea.innerHTML = "";      rounds.forEach((item) => {        const roundBlock = document.createElement("section");        roundBlock.className = "round-block";        const title = document.createElement("div");        title.className = "round-title";        title.textContent = item.round;        roundBlock.appendChild(title);        const grid = document.createElement("div");        grid.className = "members-grid";        item.members.forEach(member => {          const card = document.createElement("div");          card.className = "member-card";          const topArea = document.createElement("div");          const memberHeader = document.createElement("div");          memberHeader.className = "member-name";          memberHeader.innerHTML = `<span>${member.name}</span>`;          topArea.appendChild(memberHeader);          const list = document.createElement("ul");          list.className = "output-list";          if (member.outputs && member.outputs.length > 0) {            member.outputs.forEach(output => {              const li = document.createElement("li");              li.className = "output-item";              li.innerHTML = `                <a href="${output.link}" target="_blank">${output.title} ↗</a>                ${output.desc ? `<div class="output-meta">${output.desc}</div>` : ""}              `;              list.appendChild(li);            });          } else {            const emptyLi = document.createElement("li");            emptyLi.className = "empty-hint";            emptyLi.textContent = "暂无文档链接";            list.appendChild(emptyLi);          }          topArea.appendChild(list);          card.appendChild(topArea);          const bottomArea = document.createElement("div");          const gallery = document.createElement("div");          gallery.className = "image-gallery";          const currentImgs = storedImages.filter(img =>             img.month === month &&             img.round === item.round &&             img.member === member.name          );          currentImgs.forEach(imgRecord => {            const box = document.createElement("div");            box.className = "image-box";            box.innerHTML = `              <img src="${imgRecord.url}" alt="设计图" onclick="openModal('${imgRecord.url}')">              <button class="delete-btn" title="删除" onclick="deleteImage('${imgRecord.id}', '${imgRecord.path}', '${imgRecord.sha}')">×</button>            `;            gallery.appendChild(box);          });          bottomArea.appendChild(gallery);          const uploadWrap = document.createElement("div");          uploadWrap.className = "upload-btn-wrap";          const fileInput = document.createElement("input");          fileInput.type = "file";          fileInput.accept = "image/*";          fileInput.multiple = true;          fileInput.className = "file-input";          const uploadBtn = document.createElement("button");          uploadBtn.type = "button";          uploadBtn.className = "upload-btn";          uploadBtn.innerHTML = "<span>+</span> 批量上传设计图";          uploadBtn.onclick = () => fileInput.click();          fileInput.onchange = async (e) => {            const files = Array.from(e.target.files);            if (!files || files.length === 0) return;            uploadBtn.disabled = true;            try {              const newUploadedItems = [];              for (let i = 0; i < files.length; i++) {                uploadBtn.innerText = `上传中 (${i + 1}/${files.length})...`;                const rawBase64 = await compressImageToBase64(files[i]);                const fileInfo = await uploadSingleImageToGitee(rawBase64);                newUploadedItems.push({                  id: `${Date.now()}_${Math.random().toString(36).slice(-5)}`,                  month: month,                  round: item.round,                  member: member.name,                  url: fileInfo.url,                  path: fileInfo.path,                  sha: fileInfo.sha                });              }              uploadBtn.innerText = "同步云端中...";              await syncDataToGitee([...storedImages, ...newUploadedItems]);              renderContent(month);            } catch (err) {              alert("上传失败: " + (err.message || err));            } finally {              uploadBtn.disabled = false;              uploadBtn.innerHTML = "<span>+</span> 批量上传设计图";              fileInput.value = "";            }          };          uploadWrap.appendChild(uploadBtn);          uploadWrap.appendChild(fileInput);          bottomArea.appendChild(uploadWrap);          card.appendChild(bottomArea);          grid.appendChild(card);        });        roundBlock.appendChild(grid);        contentArea.appendChild(roundBlock);      });    }    async function deleteImage(id, path, sha) {      if (!confirm("确认从云端删除这张设计图？")) return;      try {        const filtered = storedImages.filter(img => img.id !== id);        await syncDataToGitee(filtered);        if (path && sha) {          const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${path}`;          fetch(url, {            method: "DELETE",            headers: { "Content-Type": "application/json;charset=utf-8" },            body: JSON.stringify({              access_token: GITEE_CONFIG.token,              sha: sha,              message: `delete ${path}`            })          }).catch(console.warn);        }        renderContent(currentMonth);      } catch (e) {        alert("删除失败: " + e.message);      }    }    function openModal(src) {      const modal = document.getElementById("modal");      const modalImg = document.getElementById("modalImg");      modalImg.src = src;      modal.classList.add("show");    }    function closeModal() {      document.getElementById("modal").classList.remove("show");    }    window.addEventListener("DOMContentLoaded", init);  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>团队产出 / DESIGN ARCHIVE</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --border: #262626;
+      --text: #f0f0f0;
+      --text-muted: #888888;
+      --accent: #ffffff;
+      --danger: #ff5252;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 24px 80px;
+    }
+    .container { max-width: 1080px; margin: 0 auto; }
+    header { margin-bottom: 56px; border-bottom: 1px solid var(--border); padding-bottom: 32px; }
+    h1 { font-size: 2.2rem; font-weight: 500; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .subtitle { font-size: 0.85rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+    .month-nav { display: flex; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }
+    .month-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+      padding: 8px 18px; font-size: 0.9rem; cursor: pointer; border-radius: 2px;
+      transition: all 0.2s ease;
+    }
+    .month-btn:hover { border-color: var(--text-muted); color: var(--text); }
+    .month-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+    .round-block { margin-bottom: 64px; }
+    .round-title {
+      font-size: 1.25rem; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 24px; display: flex; align-items: center; gap: 12px;
+    }
+    .round-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .member-card {
+      background-color: var(--surface); border: 1px solid var(--border);
+      padding: 20px; border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .member-name {
+      font-size: 1rem; font-weight: 500; margin-bottom: 14px; color: var(--accent);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;
+    }
+    .output-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .output-item a { color: var(--text); text-decoration: none; font-size: 0.88rem; display: block; }
+    .output-item a:hover { color: var(--text-muted); text-decoration: underline; }
+    .output-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .empty-hint { font-size: 0.82rem; color: #555; font-style: italic; }
+    .image-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; min-height: 20px; }
+    .image-box {
+      position: relative; aspect-ratio: 1; border-radius: 2px; overflow: hidden;
+      border: 1px solid var(--border); background: #000; cursor: pointer;
+    }
+    .image-box img, .image-box video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .video-tag {
+      position: absolute; bottom: 4px; right: 4px; background: rgba(0, 0, 0, 0.75);
+      color: #fff; font-size: 9px; font-weight: 600; padding: 2px 4px; border-radius: 2px;
+      pointer-events: none; letter-spacing: 0.05em; border: 1px solid rgba(255,255,255,0.1);
+    }
+    .delete-btn {
+      position: absolute; top: 4px; right: 4px; width: 20px; height: 20px;
+      background: rgba(0, 0, 0, 0.75); border: 1px solid #444; color: #fff;
+      font-size: 12px; line-height: 1; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; cursor: pointer; opacity: 0;
+      transition: opacity 0.2s; z-index: 2;
+    }
+    .image-box:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { background: var(--danger); border-color: var(--danger); }
+    .upload-btn-wrap { margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px; }
+    .upload-btn {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem;
+      color: var(--text-muted); border: 1px solid var(--border); padding: 6px 12px;
+      border-radius: 2px; cursor: pointer; background: transparent; transition: all 0.2s;
+    }
+    .upload-btn:hover { color: var(--text); border-color: var(--text-muted); background: rgba(255, 255, 255, 0.03); }
+    .upload-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .file-input { display: none; }
+    .modal {
+      display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92);
+      z-index: 999; justify-content: center; align-items: center; padding: 20px; cursor: zoom-out;
+    }
+    .modal.show { display: flex; }
+    .modal-content-box { max-width: 90vw; max-height: 90vh; display: flex; justify-content: center; align-items: center; }
+    .modal-content-box img, .modal-content-box video {
+      max-width: 90vw; max-height: 90vh; border: 1px solid var(--border); object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>团队产出</h1>
+      <div class="subtitle">Design Outputs</div>
+    </header>
+    <nav class="month-nav" id="monthNav"></nav>
+    <main id="contentArea"></main>
+  </div>
+
+  <div class="modal" id="modal" onclick="closeModal()">
+    <div class="modal-content-box" id="modalContainer" onclick="event.stopPropagation()"></div>
+  </div>
+
+  <script>
+    const GITEE_CONFIG = {
+      owner: "design_19_0",
+      repo: "img",
+      token: "611758e7e5e5ae86fca6d3fecab435c7",
+      dataFile: "data.json"
+    };
+
+    const defaultMembers = ["三七", "阿闯", "婉清", "天鸽", "袁博", "了了", "唐四", "小fu"];
+
+    const createRound = (roundName, defaultTitle = "设计提案汇总", defaultDesc = "归档整理中") => ({
+      round: roundName,
+      members: defaultMembers.map(name => ({
+        name: name,
+        outputs: [{ title: defaultTitle, link: "#", desc: defaultDesc }]
+      }))
+    });
+
+    const archiveData = {
+      "2026年7月": [
+        createRound("Round 1", "设计提案汇总", "归档整理中"),
+        createRound("Round 2", "设计提案汇总", "归档整理中"),
+        createRound("Round 3", "设计提案汇总", "归档整理中")
+      ],
+      "2026年8月": [
+        createRound("Round 1", "设计提案汇总", "网球创意"),
+        createRound("Round 2", "设计提案汇总", "网球创意"),
+        createRound("Round 3", "设计提案汇总", "网球创意")
+      ],
+      "2026年9月": [
+        createRound("Round 1", "设计提案暂存", "方案待更新"),
+        createRound("Round 2", "设计提案暂存", "方案待更新"),
+        createRound("Round 3", "设计提案暂存", "方案待更新")
+      ],
+      "2026年10月": [
+        createRound("Round 1", "设计提案暂存", "方案待更新"),
+        createRound("Round 2", "设计提案暂存", "方案待更新"),
+        createRound("Round 3", "设计提案暂存", "方案待更新")
+      ]
+    };
+
+    let currentMonth = "2026年8月";
+    let storedImages = [];
+    let dataSha = null;
+
+    function isVideoFile(filename = "") {
+      return /\.(mp4|mov|webm|ogg)$/i.test(filename);
+    }
+
+    async function loadDataFromGitee() {
+      try {
+        const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${GITEE_CONFIG.dataFile}?access_token=${GITEE_CONFIG.token}&_t=${Date.now()}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const fileInfo = await res.json();
+          dataSha = fileInfo.sha;
+          const decoded = decodeURIComponent(escape(atob(fileInfo.content)));
+          storedImages = JSON.parse(decoded) || [];
+          localStorage.setItem("gitee_local_cache", JSON.stringify(storedImages));
+        } else if (res.status === 404) {
+          storedImages = [];
+        }
+      } catch (e) {
+        const cached = localStorage.getItem("gitee_local_cache");
+        if (cached) storedImages = JSON.parse(cached);
+      }
+    }
+
+    async function syncDataToGitee(newList) {
+      storedImages = newList;
+      localStorage.setItem("gitee_local_cache", JSON.stringify(storedImages));
+      const contentStr = unescape(encodeURIComponent(JSON.stringify(storedImages)));
+      const base64Content = btoa(contentStr);
+      const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${GITEE_CONFIG.dataFile}`;
+      const payload = {
+        access_token: GITEE_CONFIG.token,
+        content: base64Content,
+        message: "update data.json"
+      };
+      if (dataSha) payload.sha = dataSha;
+      const method = dataSha ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        dataSha = resData.content?.sha || null;
+      }
+    }
+
+    function readFileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+      });
+    }
+
+    function compressImageToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX = 1400;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+              if (w > h) { h = Math.round((h * MAX) / w); w = MAX; }
+              else { w = Math.round((w * MAX) / h); h = MAX; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            resolve(dataUrl.split(',')[1]);
+          };
+          img.onerror = reject;
+        };
+        reader.onerror = reject;
+      });
+    }
+
+    async function uploadSingleFileToGitee(base64Content, extension) {
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(-5)}.${extension}`;
+      const path = `uploads/${fileName}`;
+      const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${path}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json;charset=utf-8" },
+        body: JSON.stringify({
+          access_token: GITEE_CONFIG.token,
+          content: base64Content,
+          message: `upload ${fileName}`
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Gitee 上传失败");
+      }
+      const resData = await res.json();
+      return {
+        url: resData.content.download_url,
+        path: path,
+        sha: resData.content.sha,
+        name: fileName
+      };
+    }
+
+    const monthNav = document.getElementById("monthNav");
+    const contentArea = document.getElementById("contentArea");
+
+    async function init() {
+      const cached = localStorage.getItem("gitee_local_cache");
+      if (cached) {
+        try { storedImages = JSON.parse(cached); } catch(e) {}
+      }
+      const months = Object.keys(archiveData);
+      monthNav.innerHTML = "";
+      months.forEach((month) => {
+        const btn = document.createElement("button");
+        btn.className = `month-btn ${month === currentMonth ? "active" : ""}`;
+        btn.textContent = month;
+        btn.onclick = () => selectMonth(month, btn);
+        monthNav.appendChild(btn);
+      });
+      renderContent(currentMonth);
+      await loadDataFromGitee();
+      renderContent(currentMonth);
+    }
+
+    function selectMonth(month, clickedBtn) {
+      currentMonth = month;
+      document.querySelectorAll(".month-btn").forEach(btn => btn.classList.remove("active"));
+      clickedBtn.classList.add("active");
+      renderContent(month);
+    }
+
+    function renderContent(month) {
+      const rounds = archiveData[month] || [];
+      contentArea.innerHTML = "";
+      rounds.forEach((item) => {
+        const roundBlock = document.createElement("section");
+        roundBlock.className = "round-block";
+        const title = document.createElement("div");
+        title.className = "round-title";
+        title.textContent = item.round;
+        roundBlock.appendChild(title);
+        const grid = document.createElement("div");
+        grid.className = "members-grid";
+
+        item.members.forEach(member => {
+          const card = document.createElement("div");
+          card.className = "member-card";
+          const topArea = document.createElement("div");
+          const memberHeader = document.createElement("div");
+          memberHeader.className = "member-name";
+          memberHeader.innerHTML = `<span>${member.name}</span>`;
+          topArea.appendChild(memberHeader);
+
+          const list = document.createElement("ul");
+          list.className = "output-list";
+          if (member.outputs && member.outputs.length > 0) {
+            member.outputs.forEach(output => {
+              const li = document.createElement("li");
+              li.className = "output-item";
+              li.innerHTML = `
+                <a href="${output.link}" target="_blank">${output.title} ↗</a>
+                ${output.desc ? `<div class="output-meta">${output.desc}</div>` : ""}
+              `;
+              list.appendChild(li);
+            });
+          } else {
+            const emptyLi = document.createElement("li");
+            emptyLi.className = "empty-hint";
+            emptyLi.textContent = "暂无文档链接";
+            list.appendChild(emptyLi);
+          }
+          topArea.appendChild(list);
+          card.appendChild(topArea);
+
+          const bottomArea = document.createElement("div");
+          const gallery = document.createElement("div");
+          gallery.className = "image-gallery";
+
+          const currentImgs = storedImages.filter(img => 
+            img.month === month && 
+            img.round === item.round && 
+            img.member === member.name
+          );
+
+          currentImgs.forEach(itemRecord => {
+            const isVid = isVideoFile(itemRecord.name || itemRecord.path || itemRecord.url);
+            const box = document.createElement("div");
+            box.className = "image-box";
+
+            if (isVid) {
+              box.innerHTML = `
+                <video src="${itemRecord.url}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>
+                <span class="video-tag">VIDEO</span>
+                <button class="delete-btn" title="删除" onclick="event.stopPropagation(); deleteImage('${itemRecord.id}', '${itemRecord.path}', '${itemRecord.sha}')">×</button>
+              `;
+              box.onclick = () => openModal(itemRecord.url, true);
+            } else {
+              box.innerHTML = `
+                <img src="${itemRecord.url}" alt="设计图" loading="lazy">
+                <button class="delete-btn" title="删除" onclick="event.stopPropagation(); deleteImage('${itemRecord.id}', '${itemRecord.path}', '${itemRecord.sha}')">×</button>
+              `;
+              box.onclick = () => openModal(itemRecord.url, false);
+            }
+
+            gallery.appendChild(box);
+          });
+          bottomArea.appendChild(gallery);
+
+          const uploadWrap = document.createElement("div");
+          uploadWrap.className = "upload-btn-wrap";
+
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "image/*,video/mp4,video/quicktime,video/webm";
+          fileInput.multiple = true;
+          fileInput.className = "file-input";
+
+          const uploadBtn = document.createElement("button");
+          uploadBtn.type = "button";
+          uploadBtn.className = "upload-btn";
+          uploadBtn.innerHTML = "<span>+</span> 批量上传设计图 / 视频";
+          uploadBtn.onclick = () => fileInput.click();
+
+          fileInput.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            if (!files || files.length === 0) return;
+
+            uploadBtn.disabled = true;
+            try {
+              const newUploadedItems = [];
+              for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                uploadBtn.innerText = `上传中 (${i + 1}/${files.length})...`;
+
+                const isVid = isVideoFile(file.name);
+                if (isVid && file.size > 70 * 1024 * 1024) {
+                  alert(`视频 ${file.name} 超过 70MB，Gitee 单文件限制无法上传，请压缩后重试。`);
+                  continue;
+                }
+
+                let rawBase64 = "";
+                let ext = "jpg";
+
+                if (isVid) {
+                  rawBase64 = await readFileAsBase64(file);
+                  ext = file.name.split('.').pop().toLowerCase() || "mp4";
+                } else {
+                  rawBase64 = await compressImageToBase64(file);
+                  ext = "jpg";
+                }
+
+                const fileInfo = await uploadSingleFileToGitee(rawBase64, ext);
+
+                newUploadedItems.push({
+                  id: `${Date.now()}_${Math.random().toString(36).slice(-5)}`,
+                  month: month,
+                  round: item.round,
+                  member: member.name,
+                  name: fileInfo.name,
+                  url: fileInfo.url,
+                  path: fileInfo.path,
+                  sha: fileInfo.sha
+                });
+              }
+
+              uploadBtn.innerText = "同步云端中...";
+              await syncDataToGitee([...storedImages, ...newUploadedItems]);
+              renderContent(month);
+            } catch (err) {
+              alert("上传失败: " + (err.message || err));
+            } finally {
+              uploadBtn.disabled = false;
+              uploadBtn.innerHTML = "<span>+</span> 批量上传设计图 / 视频";
+              fileInput.value = "";
+            }
+          };
+
+          uploadWrap.appendChild(uploadBtn);
+          uploadWrap.appendChild(fileInput);
+          bottomArea.appendChild(uploadWrap);
+          card.appendChild(bottomArea);
+          grid.appendChild(card);
+        });
+
+        roundBlock.appendChild(grid);
+        contentArea.appendChild(roundBlock);
+      });
+    }
+
+    async function deleteImage(id, path, sha) {
+      if (!confirm("确认从云端删除此项产出？")) return;
+      try {
+        const filtered = storedImages.filter(img => img.id !== id);
+        await syncDataToGitee(filtered);
+        if (path && sha) {
+          const url = `https://gitee.com/api/v5/repos/${GITEE_CONFIG.owner}/${GITEE_CONFIG.repo}/contents/${path}`;
+          fetch(url, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json;charset=utf-8" },
+            body: JSON.stringify({
+              access_token: GITEE_CONFIG.token,
+              sha: sha,
+              message: `delete ${path}`
+            })
+          }).catch(console.warn);
+        }
+        renderContent(currentMonth);
+      } catch (e) {
+        alert("删除失败: " + e.message);
+      }
+    }
+
+    function openModal(src, isVid) {
+      const modal = document.getElementById("modal");
+      const box = document.getElementById("modalContainer");
+      if (isVid) {
+        box.innerHTML = `<video src="${src}" controls autoplay playsinline></video>`;
+      } else {
+        box.innerHTML = `<img src="${src}" alt="设计图大图预览">`;
+      }
+      modal.classList.add("show");
+    }
+
+    function closeModal() {
+      const modal = document.getElementById("modal");
+      const box = document.getElementById("modalContainer");
+      box.innerHTML = "";
+      modal.classList.remove("show");
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
